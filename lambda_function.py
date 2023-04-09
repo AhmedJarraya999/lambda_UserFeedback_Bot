@@ -1,120 +1,148 @@
 import json
+import boto3
 
 def validate(slots):
 
-    valid_cities = ['tunis','ariana','sfax',]
+    valid_score = ['1', '2', '3', '4', '5']
+    valid_studyfield = ['DS', 'AI', 'ARCTIC', 'TWIN', 'BI', 'SAE', 'GAMIX', 'INFINI', 'NIDS', 'SIM']
     
-    if not slots['city']:
-        print("Inside Empty city")
+    if not slots['score']:
+        print("Inside Empty score")
         return {
-        'isValid': False,
-        'violatedSlot': 'city'
+            'isValid': False,
+            'violatedSlot': 'score'
         }        
         
-    if slots['city']['value']['originalValue'].lower() not in  valid_cities:
-        
-        print("Not Valid city")
-        
+    if slots['score']['value']['originalValue'] not in valid_score:
+        print("Not Valid score")
         return {
-        'isValid': False,
-        'violatedSlot': 'city',
-        'message': 'We currently  support only {} as a valid destination.?'.format(", ".join(valid_cities))
+            'isValid': False,
+            'violatedSlot': 'score',
+            'message': 'We currently support only {} as a valid score.'.format(", ".join(map(str, valid_score)))
         }
         
-    if not slots['checkindate']:
-        
+    if not slots['studyfield']:
+        print("Inside Empty studyfield")
         return {
-        'isValid': False,
-        'violatedSlot': 'checkindate',
-    }
+            'isValid': False,
+            'violatedSlot': 'studyfield'
+        }        
         
-    if not slots['days']:
+    if slots['studyfield']['value']['originalValue'].upper() not in valid_studyfield:
+        print("Not Valid studyfield")
         return {
-        'isValid': False,
-        'violatedSlot': 'days'
-    }
+            'isValid': False,
+            'violatedSlot': 'studyfield',
+            'message': 'We currently support only {} as a valid study field.'.format(", ".join(valid_studyfield))
+        }
         
-    if not slots['roomtype']:
+    if not slots['skill1']:
         return {
-        'isValid': False,
-        'violatedSlot': 'roomtype'
-    }
+            'isValid': False,
+            'violatedSlot': 'skill1',
+        }
+        
+    if not slots['skill2']:
+        return {
+            'isValid': False,
+            'violatedSlot': 'skill2'
+        }
+        
+    if not slots['skill3']:
+        return {
+            'isValid': False,
+            'violatedSlot': 'skill3'
+        }
+    
+    if not slots['suggestions']:
+        return {
+            'isValid': False,
+            'violatedSlot': 'suggestions'
+        }
 
     return {'isValid': True}
 
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('feedbacks')
+
+
 def lambda_handler(event, context):
     
-    # print(event)
+  
+    
+    
     slots = event['sessionState']['intent']['slots']
     intent = event['sessionState']['intent']['name']
     print(event['invocationSource'])
     print(slots)
     print(intent)
-    validation_result = validate(event['sessionState']['intent']['slots'])
+    
+    validation_result = validate(slots)
     
     if event['invocationSource'] == 'DialogCodeHook':
         if not validation_result['isValid']:
-            
             if 'message' in validation_result:
-            
                 response = {
-                "sessionState": {
-                    "dialogAction": {
-                        'slotToElicit':validation_result['violatedSlot'],
-                        "type": "ElicitSlot"
-                    },
-                    "intent": {
-                        'name':intent,
-                        'slots': slots
-                        
+                    "sessionState": {
+                        "dialogAction": {
+                            'slotToElicit': validation_result['violatedSlot'],
+                            "type": "ElicitSlot"
+                        },
+                        "intent": {
+                            'name': intent,
+                            'slots': slots
                         }
-                },
-                "messages": [
-                    {
-                        "contentType": "PlainText",
-                        "content": validation_result['message']
-                    }
-                ]
-               } 
+                    },
+                    "messages": [
+                        {
+                            "contentType": "PlainText",
+                            "content": validation_result['message']
+                        }
+                    ]
+                } 
             else:
                 response = {
-                "sessionState": {
-                    "dialogAction": {
-                        'slotToElicit':validation_result['violatedSlot'],
-                        "type": "ElicitSlot"
-                    },
-                    "intent": {
-                        'name':intent,
-                        'slots': slots
-                        
+                    "sessionState": {
+                        "dialogAction": {
+                            'slotToElicit': validation_result['violatedSlot'],
+                            "type": "ElicitSlot"
+                        },
+                        "intent": {
+                            'name': intent,
+                            'slots': slots
                         }
-                }
-               } 
-    
+                    }
+                } 
             return response
-           
         else:
             response = {
-            "sessionState": {
-                "dialogAction": {
-                    "type": "Delegate"
-                },
-                "intent": {
-                    'name':intent,
-                    'slots': slots
-                    
+                "sessionState": {
+                    "dialogAction": {
+                        "type": "Delegate"
+                    },
+                    "intent": {
+                        'name': intent,
+                        'slots': slots
                     }
-        
+                }
             }
-        }
             return response
-            
-
     
     if event['invocationSource'] == 'FulfillmentCodeHook':
-        
+
+
         # Add order in Database
-        
+        item = {
+            'score': slots['score']['value']['originalValue'],
+            'studyfield': slots['studyfield']['value']['originalValue'],
+            'skill1': slots['skill1']['value']['originalValue'],
+            'skill2': slots['skill2']['value']['originalValue'],
+            'skill3': slots['skill3']['value']['originalValue'],
+            'suggestions': slots['suggestions']['value']['originalValue']
+        }
+
+        table.put_item(Item=item)
+
         response = {
         "sessionState": {
             "dialogAction": {
@@ -131,11 +159,9 @@ def lambda_handler(event, context):
         "messages": [
             {
                 "contentType": "PlainText",
-                "content": "Thanks, I have placed your reservation"
+                "content": "Thanks, I got your feedback"
             }
         ]
     }
             
         return response
-        
-          
